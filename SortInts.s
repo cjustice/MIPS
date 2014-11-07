@@ -92,7 +92,6 @@ readstring:
 	syscall
 	nop
 	jr 		$ra
-	#j 	 	printinputstring
 
 printinputstring:
 	li 		$v0, 4
