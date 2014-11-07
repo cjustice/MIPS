@@ -11,23 +11,21 @@ command: .asciiz "Command: "
 mistake: .asciiz "You've entered an invalid command. Valid commands are: \n Insert, Delete, Find, Size, Print, and Quit\n"
 goodbye: .asciiz "Good-bye!\n"
 input_string: .space 32 #make space for input string w/ at most 6 characters
+input_int: 	.space 256 #make space for 32-bit integer
 sizeof: .asciiz "Size of list = "
 
 .text
 
 main:
-	jal beginprogram
+	jal programloop
 	j endcode
 
 endcode:
+	li 		$v0, 4
+	la 		$a0, goodbye
+	syscall
 	li 		$v0, 10
 	syscall
-
-beginprogram:
-	add 	$s0, $ra, $zero 		#save return address in register
-	jal 	programloop
-	move	$ra, $s0
-	jr 		$ra
 
 programloop:
 	jal 	printcommandstring 		#print "Command: "
@@ -48,7 +46,27 @@ whichcommand:
 	lb 		$t3, 0($t2)
 	addi 	$t2, $t2, 1
 	addi 	$t0, $t0, 1
-	beq 	$t0, $t3, matchinsert
+	beq 	$t1, $t3, matchinsert
+	la 		$t2, delete
+	lb 		$t3, 0($t2)
+	addi 	$t2, $t2, 1
+	beq 	$t1, $t3, matchdelete
+	la 		$t2, find
+	lb 		$t3, 0($t2)
+	addi 	$t2, $t2, 1
+	beq 	$t1, $t3, matchfind
+	la 		$t2, size
+	lb 		$t3, 0($t2)
+	addi 	$t2, $t2, 1
+	beq		$t1, $t3, matchsize
+	la 		$t2, print
+	lb 		$t3, 0($t2)
+	addi 	$t2, $t2, 1
+	beq		$t1, $t3, matchprint
+	la 		$t2, quit
+	lb 		$t3, 0($t2)
+	addi 	$t2, $t2, 1
+	beq		$t1, $t3, matchquit
 
 matchinsert:
 	li 		$t4, 5
@@ -65,7 +83,94 @@ matchinsertloop:
 	j 		matchinsertloop
 
 execinsert:
-	j 		printinputstring
+	la 		$a0, input_string
+	j 		printstring
+
+matchdelete:
+	li 		$t4, 5
+	j 		matchdeleteloop
+
+matchdeleteloop:
+	beq 	$t4, $zero, execdelete
+	lb 		$t1, 0($t0)
+	lb 		$t3, 0($t2)
+	bne 	$t1, $t3, nomatch
+	sub 	$t4, $t4, 1
+	addi 	$t2, $t2, 1
+	addi 	$t0, $t0, 1
+	j 		matchdeleteloop
+
+execdelete:
+	la 		$a0, input_string
+	j 		printstring
+
+matchfind:
+	li 		$t4, 3
+	j 		matchfindloop
+
+matchfindloop:
+	beq 	$t4, $zero, execfind
+	lb 		$t1, 0($t0)
+	lb 		$t3, 0($t2)
+	bne 	$t1, $t3, nomatch
+	sub 	$t4, $t4, 1
+	addi 	$t2, $t2, 1
+	addi 	$t0, $t0, 1
+	j 		matchfindloop
+
+execfind:
+	la 		$a0, input_string
+	j 		printstring
+
+matchsize:
+	li 		$t4, 3
+	j 		matchsizeloop
+
+matchsizeloop:
+	beq 	$t4, $zero, execsize
+	lb 		$t1, 0($t0)
+	lb 		$t3, 0($t2)
+	bne 	$t1, $t3, nomatch
+	sub 	$t4, $t4, 1
+	addi 	$t2, $t2, 1
+	addi 	$t0, $t0, 1
+	j 		matchfindloop
+
+execsize:
+	la 		$a0, input_string
+	j 		printstring
+
+matchprint:
+	li 		$t4, 4
+	j 		matchprintloop
+
+matchprintloop:
+	beq 	$t4, $zero, execprint
+	lb 		$t1, 0($t0)
+	lb 		$t3, 0($t2)
+	bne 	$t1, $t3, nomatch
+	sub 	$t4, $t4, 1
+	addi 	$t2, $t2, 1
+	addi 	$t0, $t0, 1
+	j 		matchprintloop
+
+execprint:
+	la 		$a0, input_string
+	j 		printstring
+
+matchquit:
+	li 		$t4, 3
+	j 		matchquitloop
+
+matchquitloop:
+	beq 	$t4, $zero, endcode
+	lb 		$t1, 0($t0)
+	lb 		$t3, 0($t2)
+	bne 	$t1, $t3, nomatch
+	sub 	$t4, $t4, 1
+	addi 	$t2, $t2, 1
+	addi 	$t0, $t0, 1
+	j 		matchquitloop
 
 nomatch:
 	la 		$a0, mistake
@@ -93,10 +198,7 @@ readstring:
 	nop
 	jr 		$ra
 
-printinputstring:
+printstring:
 	li 		$v0, 4
-	la 		$a0, input_string
 	syscall
 	jr		$ra
-
-
