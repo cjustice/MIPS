@@ -37,11 +37,11 @@ programloop:
 	j 		programloop 			#begin program again
 
 execcommand:
-	addiu 	$sp, $sp, -12 			#allocate 5 words on the stack
-	sw	 	$ra, 8($sp)	 			#save return address
+	subu 	$sp, $sp, 4 			#allocate 5 words on the stack
+	sw	 	$ra, 0($sp)	 			#save return address
 	jal		whichcommand
-	lw	 	$ra, 8($sp)
-	addiu 	$sp, $sp, 12			#clear the stack space
+	lw	 	$ra, 0($sp)
+	addiu 	$sp, $sp, 4				#clear the stack space
 	jr		$ra 					#go back to execcommand
 
 whichcommand:
@@ -88,17 +88,30 @@ matchinsertloop:
 	j 		matchinsertloop
 
 execinsert:
-	sw 		$ra, 4($sp) 		#store return address on the stack
+	subu 	$sp, $sp, 4
+	sw 		$ra, 0($sp) 		#store return address on the stack
 	la 		$a0, whatnumber
 	jal 	printstring
 	jal 	readint				#read an int from the console and store in input_int
+	lw 		$a0, input_int		#load input_int as an argument
+	jal 	addtolist			#put the int in the sorted list
 	lw		$t0, list_size
 	addi 	$t0, $t0, 1
 	sw 		$t0, list_size
 	lw 		$a0, list_size
 	jal 	printint
-	lw 		$ra, 4($sp)			#bring back return address
+	lw 		$ra, 0($sp)			#bring back return address
+	addiu 	$sp, $sp, 4
 	jr 		$ra
+
+#takes int in $a0 as an argument, inserts it into int_list
+addtolist:
+	move	$s0, $a0			#make copy of argument in $s0
+	lw 		$t0, list_size		#load the size of the list in t0
+	li 		$t1, 4
+	mult 	$t0, $t1
+	mflo 	$a0					#move result to $t0. $t0 is the size of the list in bytes
+	j 		printint  			
 
 matchdelete:
 	li 		$t4, 5
@@ -151,10 +164,12 @@ matchsizeloop:
 	j 		matchsizeloop
 
 execsize:
-	sw 		$ra, 4($sp)
+	subu	$sp, $sp, 4
+	sw 		$ra, 0($sp)
 	la 		$a0, sizeof
 	jal 	printstring
-	lw 		$ra, 4($sp)
+	lw 		$ra, 0($sp)
+	addiu 	$sp, $sp, 4
 	lw 		$a0, list_size
 	j 		printint
 
