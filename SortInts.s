@@ -7,11 +7,14 @@ find:  .asciiz "Find"
 size:  .asciiz "Size"
 print:  .asciiz "Print"
 quit:  .asciiz "Quit"
+whatnumber: .asciiz "Enter number to insert: "
 command: .asciiz "Command: "
 mistake: .asciiz "You've entered an invalid command. Valid commands are: \n Insert, Delete, Find, Size, Print, and Quit\n"
 goodbye: .asciiz "Good-bye!\n"
-input_string: .space 32 #make space for input string w/ at most 6 characters
-input_int: 	.space 256 #make space for 32-bit integer
+input_string: .space 6 #make space for 6 characters from input command
+input_int: 	.word 0 #make space for 32-bit integer
+int_list: .space 1000 #make space for 250 integer list
+list_size: .word 0 #size of the list is 0 at first
 sizeof: .asciiz "Size of list = "
 
 .text
@@ -34,9 +37,11 @@ programloop:
 	j 		programloop 			#begin program again
 
 execcommand:
-	add 	$s2, $ra, $zero 		#save return address
+	addiu 	$sp, $sp, -12 			#allocate 5 words on the stack
+	sw	 	$ra, 8($sp)	 			#save return address
 	jal		whichcommand
-	add 	$ra, $s2, $zero
+	lw	 	$ra, 8($sp)
+	addiu 	$sp, $sp, 12			#clear the stack space
 	jr		$ra 					#go back to execcommand
 
 whichcommand:
@@ -83,8 +88,17 @@ matchinsertloop:
 	j 		matchinsertloop
 
 execinsert:
-	la 		$a0, input_string
-	j 		printstring
+	sw 		$ra, 4($sp) 		#store return address on the stack
+	la 		$a0, whatnumber
+	jal 	printstring
+	jal 	readint				#read an int from the console and store in input_int
+	lw		$t0, list_size
+	addi 	$t0, $t0, 1
+	sw 		$t0, list_size
+	lw 		$a0, list_size
+	jal 	printint
+	lw 		$ra, 4($sp)			#bring back return address
+	jr 		$ra
 
 matchdelete:
 	li 		$t4, 5
@@ -134,11 +148,15 @@ matchsizeloop:
 	sub 	$t4, $t4, 1
 	addi 	$t2, $t2, 1
 	addi 	$t0, $t0, 1
-	j 		matchfindloop
+	j 		matchsizeloop
 
 execsize:
-	la 		$a0, input_string
-	j 		printstring
+	sw 		$ra, 4($sp)
+	la 		$a0, sizeof
+	jal 	printstring
+	lw 		$ra, 4($sp)
+	lw 		$a0, list_size
+	j 		printint
 
 matchprint:
 	li 		$t4, 4
@@ -187,7 +205,7 @@ printcommandstring:
 readint:
 	li 		$v0, 5
 	syscall
-	add 	$a1, $v0, $zero
+	sw 		$v0, input_int
  	jr 		$ra
 
 readstring:
@@ -202,3 +220,10 @@ printstring:
 	li 		$v0, 4
 	syscall
 	jr		$ra
+
+printint:
+	li 		$v0, 1
+	syscall
+	la 		$a0, newline
+	j 		printstring
+	jr 		$ra
