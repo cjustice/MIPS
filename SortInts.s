@@ -9,9 +9,11 @@ print:  .asciiz "Print"
 quit:  .asciiz "Quit"
 whatnumberinsert: .asciiz "Enter number to insert: "
 whatnumberfind: .asciiz "Enter number to find: "
+whatnumberdelete: .asciiz "Enter number to delete: "
 command: .asciiz "Command: "
 mistake: .asciiz "You've entered an invalid command. Valid commands are: \n Insert, Delete, Find, Size, Print, and Quit\n"
 goodbye: .asciiz "Good-bye!\n"
+comma: .asciiz ","
 input_string: .space 6 #make space for 6 characters from input command
 input_int: 	.word 0 #make space for 32-bit integer
 int_list: .word -1, 2, 3, 4 #make space for 250 integer list
@@ -95,24 +97,13 @@ execinsert:
 	jal 	printstring
 	jal 	readint				#read an int from the console and store in input_int
 	lw 		$a0, input_int		#load input_int as an argument
-	jal 	addtolist			#put the int in the sorted list
-	lw		$t0, list_size
-	addi 	$t0, $t0, 1
-	sw 		$t0, list_size
-	lw 		$a0, list_size
-	jal 	printint
+	jal 	afterreadint 		
 	lw 		$ra, 0($sp)			#bring back return address
 	addiu 	$sp, $sp, 4
 	jr 		$ra
 
 #takes int in $a0 as an argument, inserts it into int_list
 addtolist:
-	move	$s0, $a0			#make copy of argument in $s0
-	lw 		$t0, list_size		#load the size of the list in t0
-	li 		$t1, 4
-	mult 	$t0, $t1
-	mflo 	$a0					#move result to $t0. $t0 is the size of the list in bytes
-	j 		printint  			
 
 matchdelete:
 	li 		$t4, 5
@@ -129,8 +120,13 @@ matchdeleteloop:
 	j 		matchdeleteloop
 
 execdelete:
-	la 		$a0, input_string
-	j 		printstring
+	subu	$sp, $sp, 4
+	sw		$ra, 0($sp)
+	la 		$a0, whatnumberdelete
+	jal 	printstring
+	lw 		$ra, 0($sp)
+	addiu 	$sp, $sp, 4
+	jr		$ra
 
 matchfind:
 	li 		$t4, 3
@@ -152,15 +148,23 @@ execfind:
 	la 		$a0, whatnumberfind
 	jal 	printstring
 	jal 	readint				#read an int from the console and store in input_int
+afterreadint:
 	lw 		$a0, input_int		#load input_int as an argument
 	la 		$a1, int_list 		#lower address of list
 	lw 		$t0, list_size		#load the size of the list
+	beqz 	$t0, listempty		#list is empty, answer is zero
 	li 		$t4, 4
 	mult 	$t0, $t4			#size of the list in bytes
 	mflo 	$t0					#move size of list in bytes to t0
 	add 	$a2, $t0, $a1		#add that many bytes to the address of the lower bound
 	sub 	$a2, $a2, 4 		#but subtract 4
 	jal 	search
+	lw 		$ra, 0($sp)
+	addiu 	$sp, $sp, 4
+	jr		$ra
+
+listempty:
+	li 		$v0, 0
 	lw 		$ra, 0($sp)
 	addiu 	$sp, $sp, 4
 	jr		$ra
@@ -252,8 +256,29 @@ matchprintloop:
 	j 		matchprintloop
 
 execprint:
-	la 		$a0, input_string
-	j 		printstring
+	la 		$t0, int_list
+	lw 		$t1, list_size
+	li 		$t2, 4
+	mult 	$t1, $t2
+	mflo 	$t1
+	sub 	$t1, $t1, $t2
+	li 		$t2, 0
+
+printloop:
+	lw 		$a0, 0($t0)
+	addi 	$t0, 4
+	addi 	$t2, 4
+	li 		$v0, 1
+	syscall
+	bgt 	$t2, $t1, endprintloop
+	la 		$a0, comma
+	jal 	printstring
+	j 		printloop
+
+endprintloop:
+	la 		$a0, newline
+	jal 	printstring
+	j 		programloop
 
 matchquit:
 	li 		$t4, 3
