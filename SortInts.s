@@ -7,14 +7,15 @@ find:  .asciiz "Find"
 size:  .asciiz "Size"
 print:  .asciiz "Print"
 quit:  .asciiz "Quit"
-whatnumber: .asciiz "Enter number to insert: "
+whatnumberinsert: .asciiz "Enter number to insert: "
+whatnumberfind: .asciiz "Enter number to find: "
 command: .asciiz "Command: "
 mistake: .asciiz "You've entered an invalid command. Valid commands are: \n Insert, Delete, Find, Size, Print, and Quit\n"
 goodbye: .asciiz "Good-bye!\n"
 input_string: .space 6 #make space for 6 characters from input command
 input_int: 	.word 0 #make space for 32-bit integer
-int_list: .space 1000 #make space for 250 integer list
-list_size: .word 0 #size of the list is 0 at first
+int_list: .word -1, 2, 3, 4 #make space for 250 integer list
+list_size: .word 4 #size of the list is 0 at first
 sizeof: .asciiz "Size of list = "
 
 .text
@@ -90,7 +91,7 @@ matchinsertloop:
 execinsert:
 	subu 	$sp, $sp, 4
 	sw 		$ra, 0($sp) 		#store return address on the stack
-	la 		$a0, whatnumber
+	la 		$a0, whatnumberinsert
 	jal 	printstring
 	jal 	readint				#read an int from the console and store in input_int
 	lw 		$a0, input_int		#load input_int as an argument
@@ -146,8 +147,71 @@ matchfindloop:
 	j 		matchfindloop
 
 execfind:
-	la 		$a0, input_string
-	j 		printstring
+	subu	$sp, $sp, 4
+	sw		$ra, 0($sp)
+	la 		$a0, whatnumberfind
+	jal 	printstring
+	jal 	readint				#read an int from the console and store in input_int
+	lw 		$a0, input_int		#load input_int as an argument
+	la 		$a1, int_list 		#lower address of list
+	lw 		$t0, list_size		#load the size of the list
+	li 		$t4, 4
+	mult 	$t0, $t4			#size of the list in bytes
+	mflo 	$t0					#move size of list in bytes to t0
+	add 	$a2, $t0, $a1		#add that many bytes to the address of the lower bound
+	sub 	$a2, $a2, 4 		#but subtract 4
+	jal 	search
+	lw 		$ra, 0($sp)
+	addiu 	$sp, $sp, 4
+	jr		$ra
+
+#a0 is int you're trying to find, a1 is lower address of list, a2 is upper address. Returns index $v0
+search:
+	sub 	$t0, $a2, $a1		#t0 is size of list (in bytes) between bounds
+	bltz	$t0, notfound 		#if the size is negative then number isn't in list
+	add 	$t1, $a1, $a2		#t1 is upper bound + lower bound
+	sra 	$t0, $t0, 3 		#divide size of list by 8
+	sll 	$t0, $t0, 2 		#multiply size by 4 (this is equal to # of bytes to mid from bounds)
+	addu 	$t0, $a1, $t0 		#equal to address of middle number
+	lw 		$t1, 0($t0) 		#equal to int_list[middle]
+	beq 	$t1, $a0, found 	#go to found procedure if int_list[middle] is the number
+	j 		notequal 			
+
+found:
+	la 	 	$t2, int_list
+	sub 	$t0, $t0, $t2 		#store (middle address - beginning add. of int_list) in $t0
+	li 		$t1, 4
+	div 	$t0, $t1 			#calculate index of found
+	mflo 	$v0 				#store here
+	addi 	$v0, $v0, 1
+	add 	$a0, $v0, $zero
+	jal 	printint
+	j 		programloop
+
+notfound:
+	la 		$t1, int_list
+	sub 	$t0, $a1, $t1
+	li 		$t1, 4
+	div 	$t0, $t1
+	mflo 	$t0
+	add 	$v0, $t0, $zero
+	add 	$a0, $zero, $v0
+	jal		printint
+	j 		programloop 				#go back to main proc.
+
+notequal:
+	blt 	$t1, $a0, midless	#if midpoint is less than what you're searching for, go to less than function
+	bgt		$t1, $a0, midgreater #if midpoint is greater than what you're searching for, go to grtr than funct
+
+midless:
+	move 	$a1, $t0 			#move the midpoint to the lowerbound
+	addi    $a1, $a1, 4 		#move up the midpoint by one address
+	j 		search
+
+midgreater:
+	move 	$a2, $t0
+	sub 	$a2, $a2, 4
+	j 		search
 
 matchsize:
 	li 		$t4, 3
